@@ -585,6 +585,9 @@ public class BacklogDataStore extends AbstractDataStore {
                                         "projects/" + BacklogClient.encodeSegment(project.key()) + "/files/" + entry.path("id").asText(),
                                         url, entry), null, null, null);
                             }
+                        } else {
+                            logger.warn("Skipping the shared file entry {}{} of project {}: unknown type {}", dir, name, project.key(),
+                                    text(entry, "type"));
                         }
                     }));
         }

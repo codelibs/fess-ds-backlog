@@ -126,6 +126,9 @@ public class BacklogClient implements Closeable {
     /** Wait used for a 429 whose {@code X-RateLimit-Reset} is missing or unparseable. */
     protected static final long DEFAULT_RATE_LIMIT_WAIT_MILLIS = 60000L;
 
+    /** Lower bound of the wait for a 429, so a reset time already in the past (clock skew) does not burn the retries at once. */
+    protected static final long MIN_RATE_LIMIT_WAIT_MILLIS = 1000L;
+
     /** Upper bound of the wait for a 429. */
     protected static final long MAX_RATE_LIMIT_WAIT_MILLIS = 120000L;
 
@@ -668,7 +671,7 @@ public class BacklogClient implements Closeable {
     /**
      * Computes the wait before retrying a 429: until {@code X-RateLimit-Reset} (UTC epoch
      * seconds), {@link #DEFAULT_RATE_LIMIT_WAIT_MILLIS} when the header is missing or
-     * unparseable, never negative, capped at {@link #MAX_RATE_LIMIT_WAIT_MILLIS}.
+     * unparseable, at least {@link #MIN_RATE_LIMIT_WAIT_MILLIS}, capped at {@link #MAX_RATE_LIMIT_WAIT_MILLIS}.
      *
      * @param resetHeader the raw header value, may be {@code null}
      * @param nowMillis the current time in epoch milliseconds
@@ -678,7 +681,7 @@ public class BacklogClient implements Closeable {
         long waitMillis = DEFAULT_RATE_LIMIT_WAIT_MILLIS;
         if (StringUtil.isNotBlank(resetHeader)) {
             try {
-                waitMillis = Math.max(0L, Long.parseLong(resetHeader.trim()) * 1000L - nowMillis);
+                waitMillis = Math.max(MIN_RATE_LIMIT_WAIT_MILLIS, Long.parseLong(resetHeader.trim()) * 1000L - nowMillis);
             } catch (final NumberFormatException e) {
                 // fall back to the default wait
             }

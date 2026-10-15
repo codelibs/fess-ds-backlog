@@ -291,14 +291,14 @@ public class BacklogClientTest extends UnitDsTestCase {
 
         assertEquals("Home", wiki.path("name").asText());
         assertEquals(2, server.getRequestCount("wikis/1"));
-        assertTrue("a reset time in the past must not fall back to the 60 s default: " + elapsedMillis, elapsedMillis < 900L);
+        assertTrue("a reset time in the past must not fall back to the 60 s default: " + elapsedMillis, elapsedMillis < 5_000L);
     }
 
     @Test
     public void test_rateLimitWaitMillis() {
         final long now = 1_800_000_000_000L;
         assertEquals(30_000L, BacklogClient.rateLimitWaitMillis(Long.toString(now / 1000L + 30L), now));
-        assertEquals(0L, BacklogClient.rateLimitWaitMillis(Long.toString(now / 1000L - 5L), now));
+        assertEquals(1_000L, BacklogClient.rateLimitWaitMillis(Long.toString(now / 1000L - 5L), now));
         assertEquals(120_000L, BacklogClient.rateLimitWaitMillis(Long.toString(now / 1000L + 3600L), now));
         assertEquals(60_000L, BacklogClient.rateLimitWaitMillis(null, now));
         assertEquals(60_000L, BacklogClient.rateLimitWaitMillis("soon", now));
