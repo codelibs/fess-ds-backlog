@@ -3,6 +3,12 @@ Backlog Data Store for Fess
 
 [![Java CI with Maven](https://github.com/codelibs/fess-ds-backlog/actions/workflows/maven.yml/badge.svg)](https://github.com/codelibs/fess-ds-backlog/actions/workflows/maven.yml)
 
+> [!NOTE]
+> **Experimental.** This data store debuts in Fess 15.9 as an experimental release. It has not yet
+> been tested across a wide range of environments, so parameters and behavior may change in
+> upcoming releases. Feedback from real-world use will drive its improvements - please share your
+> experience in [GitHub Issues](https://github.com/codelibs/fess-ds-backlog/issues).
+
 ## Overview
 
 Backlog Data Store is an extension for Fess Data Store Crawling. It authenticates to a Backlog
@@ -93,7 +99,17 @@ An invalid value (a non-number, a negative interval or retry count, a non-positi
 `max_file_size`, or a boolean other than `true`/`false`) logs a WARN and falls back to the
 default. `0` is valid for `request_interval`, `search_request_interval` and `max_retry_count`.
 
+Backlog's API rate limits apply per user, not per API key, so anyone using the same account
+shares the budget with the crawler; on a Free plan the limits are stricter, so raise
+`request_interval`. A crawl makes one comments request per issue, so at the default 200 ms a space
+with 100,000 issues takes about 5.5 hours or more.
+
 ## Scripts
+
+Fess 15.9 evaluates data store scripts with the `script_type` parameter, and an unset
+`script_type` resolves to `groovy`, which is not bundled with Fess 15.9. Either add
+`script_type=javascript` to the parameters or install the `fess-script-groovy` plugin; the scripts
+below work with both.
 
 Default script:
 
@@ -143,9 +159,15 @@ Every document is exposed under the `backlog` root:
 | file | `{space_url}/file/{PROJECT}{dir}{name}`, each path segment percent-encoded (UNVERIFIED) |
 | attachment | `{parent url}#attachment-{id}` |
 
-The Document and shared-file URL forms, and the Document attachment download endpoint, were not
-verified against a real Backlog space. If a link does not open the right page, the document is
-still indexed and searchable; only the link target is wrong.
+The Document and shared-file URL forms were not verified against a real Backlog space. If a link
+does not open the right page, the document is still indexed and searchable; only the link target
+is wrong.
+
+The Document attachment download endpoint is documented by Backlog but has not been exercised
+against a real space, nor have these behaviors: the `type` values of shared-file entries
+(`file` / `directory`; an entry of any other type is skipped with a WARN), the listing path
+`files/metadata/`, and attachment downloads being answered directly (a redirect is not followed,
+so the API key never leaves the space host, and would be recorded as a failure).
 
 ## Permissions
 
@@ -205,8 +227,8 @@ handling**).
   (RequiredMFAError)**, and on a missing/malformed `api_key`/`space_url` or a failure to list the
   projects. With `keep_expires_docs=false`, aborting is not free: Fess still deletes every
   document of this data config that was not re-indexed before the abort.
-- HTTP 429: the request waits until `X-RateLimit-Reset` (at most 120 seconds, 60 seconds when the
-  header is missing) and is retried. HTTP 5xx and connection failures: retried with exponential
+- HTTP 429: the request waits until `X-RateLimit-Reset` (at least 1 second and at most 120
+  seconds, 60 seconds when the header is missing) and is retried. HTTP 5xx and connection failures: retried with exponential
   backoff (1 s, 2 s, 4 s, ... up to 60 s). After `max_retry_count` retries, the item fails.
 - Any other failure (403, 404, exhausted retries) is recorded for that one item and the crawl
   continues.
